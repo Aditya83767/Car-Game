@@ -1,0 +1,260 @@
+import turtle
+import random
+import time
+
+# ================= SCREEN =================
+wn = turtle.Screen()
+wn.title("ULTIMATE CAR RACING GAME")
+wn.bgcolor("gray")
+wn.setup(width=800, height=800)
+wn.tracer(0)
+
+# ================= GLOBAL VARIABLES =================
+game_running = False
+paused = False
+
+score = 0
+high_score = 0
+level = 1
+enemy_speed = 5
+nitro = 0
+
+lanes = [-240, -120, 0, 120, 240]
+
+player_speed = 40
+last_level_score = 0
+
+# ================= HUD PEN =================
+pen = turtle.Turtle()
+pen.hideturtle()
+pen.penup()
+pen.color("black")
+
+# ================= MENU =================
+menu = turtle.Turtle()
+menu.hideturtle()
+menu.penup()
+
+def show_menu():
+    menu.clear()
+    menu.goto(0, 200)
+    menu.write("ULTIMATE CAR RACING", align="center", font=("Arial", 32, "bold"))
+
+    menu.goto(0, 100)
+    menu.write("Press 1 - Blue Car", align="center", font=("Arial", 16, "normal"))
+    menu.goto(0, 60)
+    menu.write("Press 2 - Green Car", align="center", font=("Arial", 16, "normal"))
+    menu.goto(0, 20)
+    menu.write("Press 3 - Yellow Car", align="center", font=("Arial", 16, "normal"))
+
+    menu.goto(0, -80)
+    menu.write("Arrow Keys to Move", align="center", font=("Arial", 14, "normal"))
+    menu.goto(0, -110)
+    menu.write("Space = Nitro | P = Pause", align="center", font=("Arial", 14, "normal"))
+
+# ================= PLAYER =================
+player = turtle.Turtle()
+player.shape("square")
+player.shapesize(stretch_wid=2, stretch_len=1)
+player.penup()
+player.goto(0, -350)
+player.hideturtle()
+
+def select_car(color):
+    global game_running
+    player.color(color)
+    player.showturtle()
+    menu.clear()
+    game_running = True
+
+# ================= ROAD =================
+road_lines = []
+
+def create_road():
+    for i in range(15):
+        line = turtle.Turtle()
+        line.shape("square")
+        line.color("white")
+        line.shapesize(stretch_wid=1, stretch_len=0.3)
+        line.penup()
+        line.goto(0, -400 + i * 70)
+        road_lines.append(line)
+
+def move_road():
+    for line in road_lines:
+        y = line.ycor() - 20
+        if y < -450:
+            y = 450
+        line.sety(y)
+
+# ================= ENEMIES =================
+enemies = []
+
+def create_enemies():
+    for i in range(8):
+        enemy = turtle.Turtle()
+        enemy.shape("square")
+        enemy.shapesize(stretch_wid=2, stretch_len=1)
+        enemy.color(random.choice(["red", "black", "purple", "orange"]))
+        enemy.penup()
+        enemy.goto(random.choice(lanes), random.randint(200, 800))
+        enemies.append(enemy)
+
+def move_enemies():
+    global score, nitro
+
+    for enemy in enemies:
+        y = enemy.ycor() - enemy_speed
+        enemy.sety(y)
+
+        if y < -450:
+            enemy.goto(random.choice(lanes), random.randint(300, 800))
+            score += 1
+
+            # Nitro drop
+            if random.randint(1, 8) == 1:
+                nitro += 1
+
+# ================= CONTROLS =================
+def move_left():
+    if not game_running or paused:
+        return
+    x = player.xcor() - player_speed
+    if x >= -260:
+        player.setx(x)
+
+def move_right():
+    if not game_running or paused:
+        return
+    x = player.xcor() + player_speed
+    if x <= 260:
+        player.setx(x)
+
+def pause_game():
+    global paused
+    if game_running:
+        paused = not paused
+
+def use_nitro():
+    global nitro
+    if nitro > 0 and game_running:
+        nitro -= 1
+        boost_speed()
+
+def boost_speed():
+    global enemy_speed
+    enemy_speed += 10
+    player.color("cyan")
+    wn.ontimer(reset_speed, 2000)
+
+def reset_speed():
+    global enemy_speed
+    enemy_speed -= 10
+    player.color("blue")   # FIXED: always goes back to blue
+
+# ================= COLLISION =================
+def is_collision(a, b):
+    return a.distance(b) < 40
+
+# ================= HUD =================
+def update_hud():
+    pen.clear()
+
+    pen.goto(-350, 360)
+    pen.write(f"Score: {score}", font=("Arial", 14, "bold"))
+
+    pen.goto(200, 360)
+    pen.write(f"High: {high_score}", font=("Arial", 14, "bold"))
+
+    pen.goto(-50, 360)
+    pen.write(f"Level: {level}", font=("Arial", 14, "bold"))
+
+    pen.goto(-50, 330)
+    pen.write(f"Nitro: {nitro}", font=("Arial", 14, "bold"))
+
+    if paused:
+        pen.goto(0, 0)
+        pen.write("PAUSED", align="center", font=("Arial", 30, "bold"))
+
+# ================= LEVEL SYSTEM =================
+def update_level():
+    global level, enemy_speed, last_level_score
+
+    if score >= last_level_score + 15:
+        level += 1
+        enemy_speed += 1
+        last_level_score = score
+
+# ================= GAME OVER =================
+def game_over():
+    global game_running, high_score
+
+    game_running = False
+
+    if score > high_score:
+        high_score = score
+
+    pen.clear()
+
+    pen.goto(0, 50)
+    pen.write("GAME OVER", align="center", font=("Arial", 36, "bold"))
+
+    pen.goto(0, 0)
+    pen.write(f"Final Score: {score}", align="center", font=("Arial", 18, "normal"))
+
+    pen.goto(0, -40)
+    pen.write("Press R to Restart", align="center", font=("Arial", 16, "normal"))
+
+# ================= RESTART =================
+def restart():
+    global score, level, enemy_speed, nitro, game_running, last_level_score, paused
+
+    score = 0
+    level = 1
+    enemy_speed = 5
+    nitro = 0
+    last_level_score = 0
+    paused = False
+
+    player.goto(0, -350)
+
+    for enemy in enemies:
+        enemy.goto(random.choice(lanes), random.randint(200, 800))
+
+    pen.clear()
+    game_running = True
+
+# ================= KEY BINDINGS =================
+wn.listen()
+wn.onkeypress(move_left, "Left")
+wn.onkeypress(move_right, "Right")
+wn.onkeypress(use_nitro, "space")
+wn.onkeypress(pause_game, "p")
+wn.onkeypress(restart, "r")
+
+wn.onkeypress(lambda: select_car("blue"), "1")
+wn.onkeypress(lambda: select_car("green"), "2")
+wn.onkeypress(lambda: select_car("yellow"), "3")
+
+# ================= INIT =================
+create_road()
+create_enemies()
+show_menu()
+
+# ================= MAIN LOOP =================
+while True:
+    wn.update()
+
+    if game_running and not paused:
+        move_road()
+        move_enemies()
+
+        for enemy in enemies:
+            if is_collision(player, enemy):
+                game_over()
+
+        update_level()
+
+    update_hud()   # FIXED: always update HUD
+
+    time.sleep(0.02)
